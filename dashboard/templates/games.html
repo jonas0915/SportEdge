@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Upcoming Games{% endblock %}
+{% block nav_games %}text-emerald-400{% endblock %}
+
+{% block content %}
+<div>
+    <div class="flex flex-wrap gap-3 mb-6">
+        <select @change="window.location = '/games?sport=' + $event.target.value"
+                class="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm">
+            <option value="">All Sports</option>
+            {% for s in sports %}
+            <option value="{{ s }}" {% if s == sport_filter %}selected{% endif %}>{{ s|upper }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if games %}
+    <div class="space-y-3">
+        {% for game in games %}
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="font-semibold">{{ game.home_team }} vs {{ game.away_team }}</div>
+                    <div class="text-sm text-gray-400">
+                        {{ game.sport|upper }} &middot; {{ game.start_time[:16] }}
+                    </div>
+                </div>
+                <div class="text-sm text-gray-400">
+                    {% if game.bookmakers %}
+                    {{ game.bookmakers.split(',')|length }} books
+                    {% else %}
+                    No odds yet
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-gray-400 py-12">
+        <p class="text-lg">No upcoming games</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
