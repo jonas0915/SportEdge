@@ -1,0 +1,28 @@
+odds_api:
+  poll_interval_min: 90
+  lookahead_hours: 6
+  monthly_credit_budget: 500
+  regions: ["us"]
+  markets: ["h2h"]
+
+alerts:
+  score_threshold: 7.0
+  min_edge: 0.05
+  pre_game_hours: 2
+
+model:
+  elo_weight: 0.4
+  min_predictions_for_confidence: 50
+  default_confidence: 0.5
+
+kelly:
+  fraction: 0.25
+  max_stake_pct: 0.05
+
+dashboard:
+  port: 8080
+  refresh_seconds: 300
+  timezone_display: "US/Pacific"
+
+telegram:
+  enabled: false
