@@ -1,0 +1,38 @@
+[
+  {
+    "id": "abc123",
+    "sport_key": "basketball_nba",
+    "sport_title": "NBA",
+    "commence_time": "2026-03-27T00:00:00Z",
+    "home_team": "Los Angeles Lakers",
+    "away_team": "Boston Celtics",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {"name": "Los Angeles Lakers", "price": 150},
+              {"name": "Boston Celtics", "price": -180}
+            ]
+          }
+        ]
+      },
+      {
+        "key": "fanduel",
+        "title": "FanDuel",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {"name": "Los Angeles Lakers", "price": 140},
+              {"name": "Boston Celtics", "price": -165}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
