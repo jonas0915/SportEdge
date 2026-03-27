@@ -10,10 +10,10 @@
     <div class="mb-8">
         <div class="flex justify-between text-sm mb-1">
             <span class="text-gray-400">Overall Progress</span>
-            <span class="text-emerald-400 font-bold">1 of 6 phases</span>
+            <span class="text-emerald-400 font-bold">2 of 6 phases</span>
         </div>
         <div class="w-full bg-dark-border rounded-full h-3">
-            <div class="bg-emerald-500 h-3 rounded-full" style="width: 16.7%"></div>
+            <div class="bg-emerald-500 h-3 rounded-full" style="width: 33.3%"></div>
         </div>
     </div>
 
@@ -46,40 +46,40 @@
         </div>
 
         <!-- Phase 2 -->
+        <div class="bg-dark-card border border-emerald-500/50 rounded-lg p-5">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">&#10003;</span>
+                    <div>
+                        <h2 class="font-bold text-lg text-emerald-400">Phase 2: Stats Model</h2>
+                        <p class="text-sm text-gray-400">Elo + logistic regression probability model per sport</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-full">COMPLETE</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                <div class="flex items-center gap-2 text-emerald-400"><span>&#10003;</span> ESPN API stats fetcher</div>
+                <div class="flex items-center gap-2 text-gray-500"><span>&#9675;</span> Football-Data.org (soccer)</div>
+                <div class="flex items-center gap-2 text-gray-500"><span>&#9675;</span> UFC fighter stats</div>
+                <div class="flex items-center gap-2 text-emerald-400"><span>&#10003;</span> Elo rating system</div>
+                <div class="flex items-center gap-2 text-emerald-400"><span>&#10003;</span> Logistic regression per sport</div>
+                <div class="flex items-center gap-2 text-gray-500"><span>&#9675;</span> Confidence calibration (Brier)</div>
+                <div class="flex items-center gap-2 text-emerald-400"><span>&#10003;</span> Sport-specific feature tables</div>
+                <div class="flex items-center gap-2 text-emerald-400"><span>&#10003;</span> Model vs market comparison</div>
+            </div>
+        </div>
+
+        <!-- Phase 3 -->
         <div class="bg-dark-card border border-dark-border rounded-lg p-5 opacity-90">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-2xl text-yellow-400">&#9679;</span>
                     <div>
-                        <h2 class="font-bold text-lg">Phase 2: Stats Model</h2>
-                        <p class="text-sm text-gray-400">Elo + logistic regression probability model per sport</p>
-                    </div>
-                </div>
-                <span class="px-3 py-1 bg-yellow-600/30 text-yellow-400 text-xs font-bold rounded-full">UP NEXT</span>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-500">
-                <div class="flex items-center gap-2"><span>&#9675;</span> ESPN API stats fetcher</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> Football-Data.org (soccer)</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> UFC fighter stats</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> Elo rating system</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> Logistic regression per sport</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> Confidence calibration (Brier)</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> Sport-specific feature tables</div>
-                <div class="flex items-center gap-2"><span>&#9675;</span> Model vs market comparison</div>
-            </div>
-        </div>
-
-        <!-- Phase 3 -->
-        <div class="bg-dark-card border border-dark-border rounded-lg p-5 opacity-75">
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl text-gray-600">&#9679;</span>
-                    <div>
                         <h2 class="font-bold text-lg">Phase 3: Rationale + Alerts</h2>
                         <p class="text-sm text-gray-400">"Why This Bet" generator + Telegram notifications</p>
                     </div>
                 </div>
-                <span class="px-3 py-1 bg-gray-700 text-gray-400 text-xs font-bold rounded-full">PLANNED</span>
+                <span class="px-3 py-1 bg-yellow-600/30 text-yellow-400 text-xs font-bold rounded-full">UP NEXT</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-600">
                 <div class="flex items-center gap-2"><span>&#9675;</span> Template-based rationale</div>
