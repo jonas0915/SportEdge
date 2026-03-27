@@ -1,0 +1,27 @@
+{
+  "children": [
+    {
+      "name": "Eastern Conference",
+      "standings": {
+        "entries": [
+          {
+            "team": {
+              "displayName": "Boston Celtics",
+              "abbreviation": "BOS"
+            },
+            "stats": [
+              {"name": "wins", "value": 50},
+              {"name": "losses", "value": 15},
+              {"name": "avgPointsFor", "value": 118.5},
+              {"name": "avgPointsAgainst", "value": 108.2},
+              {"name": "streak", "value": 5.0},
+              {"name": "Home Record", "summary": "30-3"},
+              {"name": "Away Record", "summary": "20-12"},
+              {"name": "Last Ten Games Record", "summary": "8-2"}
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
