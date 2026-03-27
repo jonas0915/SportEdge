@@ -8,7 +8,7 @@ from logging_config import setup_logging
 from db.database import run_migrations
 from dashboard.routes import router as dashboard_router
 from scheduler import create_scheduler
-from engine.pipeline import run_pipeline
+from engine.pipeline import run_pipeline, run_stats_fetch
 from config import config
 
 setup_logging()
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     # Run pipeline once on startup (with error handling)
     async def _startup_fetch():
         try:
+            await run_stats_fetch()
             await run_pipeline()
         except Exception as e:
             logger.error(f"Startup pipeline failed: {e}")

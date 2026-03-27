@@ -61,3 +61,38 @@ def find_value_bets(
 
     value_bets.sort(key=lambda x: x["edge"], reverse=True)
     return value_bets
+
+
+def find_value_bets_with_model(
+    game_odds: list[dict],
+    model_prob: float,
+    min_edge: float = 0.05,
+) -> list[dict]:
+    """Find value using our model probability vs each book's implied prob."""
+    value_bets = []
+    for o in game_odds:
+        book_implied = american_to_implied_prob(o["price"])
+        # For 'home' selection: edge = model_prob - book_implied
+        # For 'away' selection: edge = (1 - model_prob) - book_implied
+        if o["selection"] == "home":
+            our_prob = model_prob
+        elif o["selection"] == "away":
+            our_prob = 1 - model_prob
+        else:  # draw
+            continue  # skip draws for now (model doesn't output draw prob)
+
+        edge = our_prob - book_implied
+        if edge >= min_edge:
+            value_bets.append({
+                "selection": o["selection"],
+                "bet_type": o["bet_type"],
+                "model_prob": our_prob,
+                "market_prob": book_implied,
+                "edge": edge,
+                "best_book": o["bookmaker"],
+                "best_odds": o["price"],
+                "point": o.get("point"),
+            })
+
+    value_bets.sort(key=lambda x: x["edge"], reverse=True)
+    return value_bets
