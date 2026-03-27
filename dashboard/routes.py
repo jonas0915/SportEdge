@@ -36,6 +36,11 @@ async def upcoming_games(request: Request, sport: str = ""):
     })
 
 
+@router.get("/roadmap")
+async def roadmap(request: Request):
+    return templates.TemplateResponse("roadmap.html", {"request": request})
+
+
 @router.get("/api/picks")
 async def api_picks(sport: str = "", min_edge: float = 0.0):
     picks = get_top_picks(limit=50, min_edge=min_edge or config.alerts.min_edge)
