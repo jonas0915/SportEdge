@@ -31,10 +31,20 @@
                         #{{ pick.rank if pick.rank is defined else loop.index }}
                     </span>
                     <div>
-                        <div class="font-semibold">{{ pick.home_team }} vs {{ pick.away_team }}</div>
+                        <div class="font-semibold text-lg">
+                            Bet
+                            <span class="text-emerald-400">
+                                {% if pick.selection == 'home' %}{{ pick.home_team }}
+                                {% elif pick.selection == 'away' %}{{ pick.away_team }}
+                                {% else %}Draw{% endif %}
+                            </span>
+                        </div>
                         <div class="text-sm text-gray-400">
+                            {{ pick.home_team }} vs {{ pick.away_team }}
+                        </div>
+                        <div class="text-xs text-gray-500">
                             {{ pick.sport|upper }} &middot;
-                            {{ pick.selection|upper }} {{ pick.bet_type|upper }} &middot;
+                            Moneyline &middot;
                             {{ pick.start_time[:16] }}
                         </div>
                     </div>
@@ -75,8 +85,9 @@
                     {{ pick.rationale }}
                 </div>
                 {% endif %}
+                {% set bet_team = pick.home_team if pick.selection == 'home' else (pick.away_team if pick.selection == 'away' else 'Draw') %}
                 <button class="mt-3 px-3 py-1 bg-emerald-600 rounded text-sm hover:bg-emerald-500"
-                        @click.stop="copyBet('{{ pick.best_book }}: {{ pick.selection }} {{ pick.bet_type }} @ {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }} — {{ pick.home_team }} vs {{ pick.away_team }}')">
+                        @click.stop="copyBet('{{ pick.best_book }}: Bet {{ bet_team }} ML @ {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }} — {{ pick.home_team }} vs {{ pick.away_team }}')">
                     Copy Bet
                 </button>
             </div>
