@@ -151,3 +151,261 @@ def get_game_odds(game_id: int) -> list[dict]:
         return [dict(r) for r in rows]
     finally:
         conn.close()
+
+
+def insert_bet(
+    prediction_id: int | None,
+    game_id: int,
+    sport: str,
+    selection: str,
+    bookmaker: str,
+    odds: int,
+    stake: float,
+) -> int:
+    """Log a new bet. Returns the new bet id."""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO bets (prediction_id, game_id, sport, selection, bookmaker, odds, stake) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (prediction_id, game_id, sport, selection, bookmaker, int(odds), stake),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def get_pending_bets() -> list[dict]:
+    """Return all bets where outcome IS NULL."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT b.*, g.home_team, g.away_team, g.start_time, g.winner, g.status as game_status
+            FROM bets b
+            JOIN games g ON b.game_id = g.id
+            WHERE b.outcome IS NULL
+            ORDER BY b.placed_at DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_bet_history(sport: str = "", limit: int = 50) -> list[dict]:
+    """Return resolved bets, newest first."""
+    conn = get_connection()
+    try:
+        if sport:
+            rows = conn.execute(
+                """
+                SELECT b.*, g.home_team, g.away_team, g.start_time
+                FROM bets b
+                JOIN games g ON b.game_id = g.id
+                WHERE b.outcome IS NOT NULL AND b.sport = ?
+                ORDER BY b.resolved_at DESC
+                LIMIT ?
+                """,
+                (sport, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT b.*, g.home_team, g.away_team, g.start_time
+                FROM bets b
+                JOIN games g ON b.game_id = g.id
+                WHERE b.outcome IS NOT NULL
+                ORDER BY b.resolved_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def _compute_pnl(odds: int, stake: float, outcome: str) -> float:
+    """Compute P&L from American odds, stake, and outcome."""
+    if outcome == "win":
+        if odds > 0:
+            return stake * (odds / 100.0)
+        else:
+            return stake * (100.0 / abs(odds))
+    elif outcome == "loss":
+        return -stake
+    else:  # push
+        return 0.0
+
+
+def resolve_bets() -> int:
+    """
+    Check all pending bets. If the game is final, compute P&L and set outcome.
+    Returns the number of bets resolved.
+    """
+    conn = get_connection()
+    try:
+        pending = conn.execute(
+            """
+            SELECT b.id, b.odds, b.stake, b.selection,
+                   g.winner, g.status as game_status, g.home_team, g.away_team
+            FROM bets b
+            JOIN games g ON b.game_id = g.id
+            WHERE b.outcome IS NULL AND g.status = 'final'
+            """
+        ).fetchall()
+
+        resolved = 0
+        for row in pending:
+            winner = row["winner"]
+            selection = row["selection"]
+            home_team = row["home_team"]
+            away_team = row["away_team"]
+
+            # Determine what team was picked
+            if selection == "home":
+                picked_team = home_team
+            elif selection == "away":
+                picked_team = away_team
+            elif selection == "draw":
+                picked_team = None  # push
+            else:
+                picked_team = selection  # Literal team name
+
+            # Determine outcome
+            if picked_team is None:
+                outcome = "push"
+            elif winner is None:
+                # Draw/no winner — push
+                outcome = "push"
+            elif picked_team == winner:
+                outcome = "win"
+            else:
+                outcome = "loss"
+
+            pnl = _compute_pnl(row["odds"], row["stake"], outcome)
+
+            conn.execute(
+                """
+                UPDATE bets
+                SET outcome = ?, pnl = ?, resolved_at = datetime('now')
+                WHERE id = ?
+                """,
+                (outcome, pnl, row["id"]),
+            )
+            resolved += 1
+
+        if resolved > 0:
+            conn.commit()
+
+        return resolved
+    finally:
+        conn.close()
+
+
+def get_bet_stats(sport: str = "") -> dict:
+    """
+    Return aggregate stats dict:
+    total_bets, wins, losses, pushes, total_staked, total_pnl, roi_pct, win_rate
+    """
+    conn = get_connection()
+    try:
+        if sport:
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) as total_bets,
+                    SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+                    SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losses,
+                    SUM(CASE WHEN outcome = 'push' THEN 1 ELSE 0 END) as pushes,
+                    SUM(stake) as total_staked,
+                    SUM(COALESCE(pnl, 0)) as total_pnl
+                FROM bets
+                WHERE outcome IS NOT NULL AND sport = ?
+                """,
+                (sport,),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) as total_bets,
+                    SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+                    SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losses,
+                    SUM(CASE WHEN outcome = 'push' THEN 1 ELSE 0 END) as pushes,
+                    SUM(stake) as total_staked,
+                    SUM(COALESCE(pnl, 0)) as total_pnl
+                FROM bets
+                WHERE outcome IS NOT NULL
+                """
+            ).fetchone()
+
+        total_bets = row["total_bets"] or 0
+        wins = row["wins"] or 0
+        losses = row["losses"] or 0
+        pushes = row["pushes"] or 0
+        total_staked = row["total_staked"] or 0.0
+        total_pnl = row["total_pnl"] or 0.0
+
+        win_rate = (wins / (wins + losses)) * 100.0 if (wins + losses) > 0 else 0.0
+        roi_pct = (total_pnl / total_staked) * 100.0 if total_staked > 0 else 0.0
+
+        return {
+            "total_bets": total_bets,
+            "wins": wins,
+            "losses": losses,
+            "pushes": pushes,
+            "total_staked": total_staked,
+            "total_pnl": total_pnl,
+            "roi_pct": roi_pct,
+            "win_rate": win_rate,
+        }
+    finally:
+        conn.close()
+
+
+def get_bet_stats_by_sport() -> list[dict]:
+    """Return per-sport bet stats for all sports that have resolved bets."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                sport,
+                COUNT(*) as total_bets,
+                SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN outcome = 'push' THEN 1 ELSE 0 END) as pushes,
+                SUM(stake) as total_staked,
+                SUM(COALESCE(pnl, 0)) as total_pnl
+            FROM bets
+            WHERE outcome IS NOT NULL
+            GROUP BY sport
+            ORDER BY total_bets DESC
+            """
+        ).fetchall()
+
+        result = []
+        for row in rows:
+            wins = row["wins"] or 0
+            losses = row["losses"] or 0
+            total_staked = row["total_staked"] or 0.0
+            total_pnl = row["total_pnl"] or 0.0
+            win_rate = (wins / (wins + losses)) * 100.0 if (wins + losses) > 0 else 0.0
+            roi_pct = (total_pnl / total_staked) * 100.0 if total_staked > 0 else 0.0
+            result.append({
+                "sport": row["sport"],
+                "total_bets": row["total_bets"] or 0,
+                "wins": wins,
+                "losses": losses,
+                "pushes": row["pushes"] or 0,
+                "total_staked": total_staked,
+                "total_pnl": total_pnl,
+                "win_rate": win_rate,
+                "roi_pct": roi_pct,
+            })
+        return result
+    finally:
+        conn.close()

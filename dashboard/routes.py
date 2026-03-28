@@ -1,10 +1,24 @@
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Form
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from db.models import get_top_picks, get_upcoming_games, get_game_odds
+from db.models import (
+    get_top_picks, get_upcoming_games, get_game_odds,
+    insert_bet, get_pending_bets, get_bet_history,
+    get_bet_stats, get_bet_stats_by_sport,
+)
 from engine.calibration import get_calibration_summary
+from engine.performance import (
+    get_prediction_performance,
+    get_daily_performance,
+    get_edge_distribution,
+    get_sport_comparison,
+)
 from config import config
+import logging
+
+logger = logging.getLogger("dashboard.routes")
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -62,6 +76,21 @@ async def calibration(request: Request):
     })
 
 
+@router.get("/performance")
+async def performance(request: Request):
+    summary = get_prediction_performance()
+    daily = get_daily_performance(days=30)
+    edge_dist = get_edge_distribution()
+    sport_cmp = get_sport_comparison()
+    return templates.TemplateResponse("performance.html", {
+        "request": request,
+        "summary": summary,
+        "daily": daily,
+        "edge_dist": edge_dist,
+        "sport_cmp": sport_cmp,
+    })
+
+
 @router.get("/roadmap")
 async def roadmap(request: Request):
     return templates.TemplateResponse("roadmap.html", {"request": request})
@@ -76,3 +105,76 @@ async def api_picks(sport: str = "", min_edge: float = 0.0):
 @router.get("/api/game/{game_id}/odds")
 async def api_game_odds(game_id: int):
     return get_game_odds(game_id)
+
+
+@router.post("/bets/place")
+async def place_bet(
+    request: Request,
+    prediction_id: int = Form(...),
+    stake: float = Form(...),
+):
+    """Log a bet from the picks page. Looks up prediction to fill in all fields."""
+    from db.database import get_connection as _gc
+    conn = _gc()
+    try:
+        row = conn.execute(
+            """
+            SELECT p.game_id, p.selection, p.best_book, p.best_odds,
+                   g.sport, g.home_team, g.away_team
+            FROM predictions p
+            JOIN games g ON p.game_id = g.id
+            WHERE p.id = ?
+            """,
+            (prediction_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        logger.warning(f"place_bet: prediction {prediction_id} not found")
+        return RedirectResponse("/?error=prediction_not_found", status_code=303)
+
+    # Resolve the display team name from selection key
+    selection = row["selection"]
+    if selection == "home":
+        team_name = row["home_team"]
+    elif selection == "away":
+        team_name = row["away_team"]
+    else:
+        team_name = selection  # draw or literal name
+
+    try:
+        insert_bet(
+            prediction_id=prediction_id,
+            game_id=row["game_id"],
+            sport=row["sport"],
+            selection=team_name,
+            bookmaker=row["best_book"] or "unknown",
+            odds=int(row["best_odds"]),
+            stake=stake,
+        )
+        logger.info(
+            f"Bet logged: pred={prediction_id} team={team_name} "
+            f"odds={row['best_odds']} stake=${stake}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to insert bet: {e}")
+
+    return RedirectResponse("/?betlogged=1", status_code=303)
+
+
+@router.get("/tracker")
+async def tracker(request: Request, sport: str = ""):
+    stats = get_bet_stats(sport=sport)
+    sport_breakdown = get_bet_stats_by_sport()
+    history = get_bet_history(sport=sport, limit=50)
+    pending = get_pending_bets()
+    return templates.TemplateResponse("tracker.html", {
+        "request": request,
+        "stats": stats,
+        "sport_breakdown": sport_breakdown,
+        "history": history,
+        "pending": pending,
+        "sport_filter": sport,
+        "sports": ["nfl", "nba", "mlb", "nhl", "soccer", "ufc"],
+    })

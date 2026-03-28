@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from fetchers.base import BaseFetcher
 from fetchers.odds_fetcher import SPORT_KEYS
 from db.database import get_connection
+from db.models import resolve_bets
 from config import config
 
 logger = logging.getLogger("engine.results")
@@ -171,6 +172,15 @@ def process_scores_response(data: list[dict], sport_key: str) -> tuple[int, int]
         raise
     finally:
         conn.close()
+
+    # Auto-resolve any tracked bets whose games are now final
+    if games_updated > 0:
+        try:
+            bets_resolved = resolve_bets()
+            if bets_resolved:
+                logger.info(f"[{sport_key}] {bets_resolved} tracked bets resolved")
+        except Exception as e:
+            logger.error(f"Error resolving bets for {sport_key}: {e}")
 
     return games_updated, predictions_resolved
 

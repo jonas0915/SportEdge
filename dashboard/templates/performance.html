@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Model Performance{% endblock %}
+{% block nav_performance %}text-emerald-400{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-emerald-400 mb-1">Model Performance</h1>
+        <p class="text-sm text-gray-400">Win rates, edge quality, and results broken down by sport and day. Complements the <a href="/calibration" class="text-emerald-400 hover:underline">Calibration</a> page.</p>
+    </div>
+
+    {% if summary.total_predictions == 0 %}
+    <!-- No data state -->
+    <div class="bg-dark-card border border-dark-border rounded-lg p-12 text-center">
+        <div class="text-4xl mb-4 text-gray-600">&#9685;</div>
+        <p class="text-lg text-gray-300 mb-2">No resolved predictions yet</p>
+        <p class="text-sm text-gray-500">
+            Performance data will appear once games finish and predictions are resolved.<br>
+            The results fetcher runs every 30 minutes automatically.
+        </p>
+    </div>
+
+    {% else %}
+
+    <!-- Section 1: Overview Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+
+        <!-- Total Resolved -->
+        <div class="bg-dark-card border border-dark-border rounded-lg p-5">
+            <div class="text-sm text-gray-400 mb-1">Total Resolved</div>
+            <div class="text-3xl font-bold text-gray-100">{{ summary.total_predictions }}</div>
+            <div class="text-xs text-gray-500 mt-2">{{ summary.wins }}W / {{ summary.losses }}L</div>
+        </div>
+
+        <!-- Win Rate -->
+        <div class="bg-dark-card border border-dark-border rounded-lg p-5">
+            <div class="text-sm text-gray-400 mb-1">Win Rate</div>
+            <div class="text-3xl font-bold
+                {% if summary.win_rate is not none %}
+                    {% if summary.win_rate >= 55 %}text-emerald-400
+                    {% elif summary.win_rate >= 50 %}text-yellow-400
+                    {% elif summary.win_rate >= 40 %}text-orange-400
+                    {% else %}text-red-400{% endif %}
+                {% else %}text-gray-400{% endif %}">
+                {% if summary.win_rate is not none %}{{ summary.win_rate }}%{% else %}—{% endif %}
+            </div>
+            <div class="text-xs text-gray-500 mt-2">
+                {% if summary.win_rate is not none %}
+                    {% if summary.win_rate >= 55 %}Above break-even
+                    {% elif summary.win_rate >= 50 %}Near break-even
+                    {% else %}Below break-even{% endif %}
+                {% else %}No data{% endif %}
+            </div>
+        </div>
+
+        <!-- Avg Edge on Wins -->
+        <div class="bg-dark-card border border-dark-border rounded-lg p-5">
+            <div class="text-sm text-gray-400 mb-1">Avg Edge (Wins)</div>
+            <div class="text-3xl font-bold
+                {% if summary.avg_edge_on_wins is not none %}
+                    {% if summary.avg_edge_on_wins >= 10 %}text-emerald-400
+                    {% elif summary.avg_edge_on_wins >= 5 %}text-yellow-400
+                    {% else %}text-gray-300{% endif %}
+                {% else %}text-gray-400{% endif %}">
+                {% if summary.avg_edge_on_wins is not none %}+{{ summary.avg_edge_on_wins }}%{% else %}—{% endif %}
+            </div>
+            {% if summary.avg_edge_on_losses is not none %}
+            <div class="text-xs text-gray-500 mt-2">vs {{ summary.avg_edge_on_losses }}% on losses</div>
+            {% else %}
+            <div class="text-xs text-gray-500 mt-2">edge on winning picks</div>
+            {% endif %}
+        </div>
+
+        <!-- Best Sport -->
+        <div class="bg-dark-card border border-dark-border rounded-lg p-5">
+            <div class="text-sm text-gray-400 mb-1">Best Sport</div>
+            {% if summary.best_sport %}
+            <div class="text-3xl font-bold text-emerald-400 uppercase">{{ summary.best_sport }}</div>
+            <div class="text-xs text-gray-500 mt-2">
+                {% if summary.worst_sport and summary.worst_sport != summary.best_sport %}
+                worst: {{ summary.worst_sport|upper }}
+                {% else %}
+                min 10 predictions
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="text-3xl font-bold text-gray-500">—</div>
+            <div class="text-xs text-gray-500 mt-2">need 10+ per sport</div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Section 2: Sport Comparison Table -->
+    {% if sport_cmp %}
+    <div class="bg-dark-card border border-dark-border rounded-lg p-5 mb-6">
+        <h2 class="font-semibold text-gray-200 mb-1">Sport Comparison</h2>
+        <p class="text-xs text-gray-500 mb-4">All resolved predictions grouped by sport. Brier score: lower = better probability calibration.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-dark-border text-gray-400 text-left">
+                        <th class="pb-2 pr-4">Sport</th>
+                        <th class="pb-2 pr-4 text-right">Predictions</th>
+                        <th class="pb-2 pr-4 text-right">Wins</th>
+                        <th class="pb-2 pr-4 text-right">Losses</th>
+                        <th class="pb-2 pr-4 text-right">Win Rate</th>
+                        <th class="pb-2 pr-4 text-right">Avg Edge</th>
+                        <th class="pb-2 text-right">Brier Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in sport_cmp %}
+                    <tr class="border-b border-dark-border/50">
+                        <td class="py-2 pr-4 font-semibold text-gray-100 uppercase">{{ row.sport }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-300">{{ row.total }}</td>
+                        <td class="py-2 pr-4 text-right text-emerald-400">{{ row.wins }}</td>
+                        <td class="py-2 pr-4 text-right text-red-400">{{ row.losses }}</td>
+                        <td class="py-2 pr-4 text-right font-bold
+                            {% if row.win_rate >= 50 %}text-emerald-400
+                            {% elif row.win_rate >= 40 %}text-yellow-400
+                            {% else %}text-red-400{% endif %}">
+                            {{ row.win_rate }}%
+                        </td>
+                        <td class="py-2 pr-4 text-right
+                            {% if row.avg_edge is not none %}
+                                {% if row.avg_edge >= 10 %}text-emerald-400
+                                {% elif row.avg_edge >= 5 %}text-yellow-400
+                                {% else %}text-gray-300{% endif %}
+                            {% else %}text-gray-500{% endif %}">
+                            {% if row.avg_edge is not none %}+{{ row.avg_edge }}%{% else %}—{% endif %}
+                        </td>
+                        <td class="py-2 text-right
+                            {% if row.brier_score is not none %}
+                                {% if row.brier_score < 0.15 %}text-emerald-400
+                                {% elif row.brier_score < 0.20 %}text-yellow-400
+                                {% else %}text-red-400{% endif %}
+                            {% else %}text-gray-500{% endif %}">
+                            {% if row.brier_score is not none %}{{ "%.4f"|format(row.brier_score) }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 3: Edge Distribution -->
+    <div class="bg-dark-card border border-dark-border rounded-lg p-5 mb-6">
+        <h2 class="font-semibold text-gray-200 mb-1">Edge Distribution</h2>
+        <p class="text-xs text-gray-500 mb-4">
+            Do higher-edge picks actually win more? This table reveals whether the model's edge is real.
+        </p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-dark-border text-gray-400 text-left">
+                        <th class="pb-2 pr-4">Edge Range</th>
+                        <th class="pb-2 pr-4 text-right">Picks</th>
+                        <th class="pb-2 pr-4 text-right">Wins</th>
+                        <th class="pb-2 pr-4 text-right">Losses</th>
+                        <th class="pb-2 pr-4 text-right">Win Rate</th>
+                        <th class="pb-2 text-left">Signal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in edge_dist %}
+                    <tr class="border-b border-dark-border/50 {% if row.count == 0 %}opacity-40{% endif %}">
+                        <td class="py-2 pr-4 font-mono text-gray-300">{{ row.edge_bucket }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-300">{{ row.count }}</td>
+                        <td class="py-2 pr-4 text-right text-emerald-400">{{ row.wins }}</td>
+                        <td class="py-2 pr-4 text-right text-red-400">{{ row.losses }}</td>
+                        <td class="py-2 pr-4 text-right font-bold
+                            {% if row.win_rate is not none %}
+                                {% if row.win_rate >= 50 %}text-emerald-400
+                                {% elif row.win_rate >= 40 %}text-yellow-400
+                                {% else %}text-red-400{% endif %}
+                            {% else %}text-gray-500{% endif %}">
+                            {% if row.win_rate is not none %}{{ row.win_rate }}%{% else %}—{% endif %}
+                        </td>
+                        <td class="py-2">
+                            {% if row.win_rate is not none %}
+                                {% if row.win_rate >= 55 %}
+                                    <span class="text-xs text-emerald-400">Strong edge</span>
+                                {% elif row.win_rate >= 50 %}
+                                    <span class="text-xs text-yellow-400">Marginal edge</span>
+                                {% elif row.win_rate >= 40 %}
+                                    <span class="text-xs text-orange-400">Weak result</span>
+                                {% else %}
+                                    <span class="text-xs text-red-400">No edge here</span>
+                                {% endif %}
+                            {% elif row.count == 0 %}
+                                <span class="text-xs text-gray-600">No picks</span>
+                            {% else %}
+                                <span class="text-xs text-gray-600">No data</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Section 4: Daily Performance -->
+    {% if daily %}
+    <div class="bg-dark-card border border-dark-border rounded-lg p-5">
+        <h2 class="font-semibold text-gray-200 mb-1">Daily Performance</h2>
+        <p class="text-xs text-gray-500 mb-4">Last 30 days — only days with resolved predictions shown.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-dark-border text-gray-400 text-left">
+                        <th class="pb-2 pr-4">Date</th>
+                        <th class="pb-2 pr-4 text-right">Picks</th>
+                        <th class="pb-2 pr-4 text-right">Wins</th>
+                        <th class="pb-2 pr-4 text-right">Losses</th>
+                        <th class="pb-2 text-right">Win Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in daily %}
+                    <tr class="border-b border-dark-border/50">
+                        <td class="py-2 pr-4 font-mono text-gray-300">{{ row.date }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-300">{{ row.predictions_count }}</td>
+                        <td class="py-2 pr-4 text-right text-emerald-400">{{ row.wins }}</td>
+                        <td class="py-2 pr-4 text-right text-red-400">{{ row.losses }}</td>
+                        <td class="py-2 text-right font-bold
+                            {% if row.win_rate >= 50 %}text-emerald-400
+                            {% elif row.win_rate >= 40 %}text-yellow-400
+                            {% else %}text-red-400{% endif %}">
+                            {{ row.win_rate }}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endblock %}

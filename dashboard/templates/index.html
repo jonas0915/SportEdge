@@ -86,10 +86,23 @@
                 </div>
                 {% endif %}
                 {% set bet_team = pick.home_team if pick.selection == 'home' else (pick.away_team if pick.selection == 'away' else 'Draw') %}
-                <button class="mt-3 px-3 py-1 bg-emerald-600 rounded text-sm hover:bg-emerald-500"
-                        @click.stop="copyBet('{{ pick.best_book }}: Bet {{ bet_team }} ML @ {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }} — {{ pick.home_team }} vs {{ pick.away_team }}')">
-                    Copy Bet
-                </button>
+                <div class="flex items-center gap-3 mt-3 flex-wrap">
+                    <button class="px-3 py-1 bg-emerald-600 rounded text-sm hover:bg-emerald-500"
+                            @click.stop="copyBet('{{ pick.best_book }}: Bet {{ bet_team }} ML @ {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }} — {{ pick.home_team }} vs {{ pick.away_team }}')">
+                        Copy Bet
+                    </button>
+                    <form method="POST" action="/bets/place" @click.stop class="flex items-center gap-2">
+                        <input type="hidden" name="prediction_id" value="{{ pick.id }}">
+                        <span class="text-gray-400">$</span>
+                        <input type="number" name="stake" value="10" min="0.01" step="0.01"
+                               class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-sm text-center"
+                               @click.stop>
+                        <button type="submit"
+                                class="px-3 py-1 bg-blue-600 rounded text-sm hover:bg-blue-500">
+                            Log Bet
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endfor %}

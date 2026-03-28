@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Bet Tracker{% endblock %}
+{% block nav_tracker %}text-emerald-400{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-emerald-400">Bet Tracker</h1>
+            <p class="text-gray-400 text-sm mt-1">Track your logged bets and P&L</p>
+        </div>
+        <!-- Sport filter -->
+        <select onchange="window.location = '/tracker' + ($event.target.value ? '?sport=' + $event.target.value : '')"
+                class="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm">
+            <option value="">All Sports</option>
+            {% for s in sports %}
+            <option value="{{ s }}" {% if s == sport_filter %}selected{% endif %}>{{ s|upper }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold text-white">{{ stats.total_bets }}</div>
+            <div class="text-sm text-gray-400 mt-1">Total Bets</div>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold
+                {% if stats.win_rate >= 55 %}text-emerald-400
+                {% elif stats.win_rate >= 45 %}text-yellow-400
+                {% else %}text-red-400{% endif %}">
+                {{ "%.1f"|format(stats.win_rate) }}%
+            </div>
+            <div class="text-sm text-gray-400 mt-1">Win Rate</div>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold
+                {% if stats.total_pnl > 0 %}text-emerald-400
+                {% elif stats.total_pnl < 0 %}text-red-400
+                {% else %}text-gray-300{% endif %}">
+                {% if stats.total_pnl >= 0 %}+{% endif %}${{ "%.2f"|format(stats.total_pnl) }}
+            </div>
+            <div class="text-sm text-gray-400 mt-1">Total P&L</div>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold
+                {% if stats.roi_pct > 0 %}text-emerald-400
+                {% elif stats.roi_pct < 0 %}text-red-400
+                {% else %}text-gray-300{% endif %}">
+                {% if stats.roi_pct >= 0 %}+{% endif %}{{ "%.1f"|format(stats.roi_pct) }}%
+            </div>
+            <div class="text-sm text-gray-400 mt-1">ROI</div>
+        </div>
+    </div>
+
+    <!-- W/L/P secondary row -->
+    {% if stats.total_bets > 0 %}
+    <div class="flex gap-6 mb-8 text-sm text-gray-400">
+        <span><span class="text-emerald-400 font-bold">{{ stats.wins }}W</span> wins</span>
+        <span><span class="text-red-400 font-bold">{{ stats.losses }}L</span> losses</span>
+        <span><span class="text-gray-300 font-bold">{{ stats.pushes }}P</span> pushes</span>
+        <span>Total staked: <span class="text-white font-bold">${{ "%.2f"|format(stats.total_staked) }}</span></span>
+    </div>
+    {% endif %}
+
+    <!-- Sport Breakdown -->
+    {% if sport_breakdown %}
+    <div class="bg-dark-card border border-dark-border rounded-lg p-5 mb-8">
+        <h2 class="font-bold text-lg mb-4">Sport Breakdown</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 border-b border-dark-border">
+                        <th class="text-left pb-2">Sport</th>
+                        <th class="text-right pb-2">Bets</th>
+                        <th class="text-right pb-2">W</th>
+                        <th class="text-right pb-2">L</th>
+                        <th class="text-right pb-2">P</th>
+                        <th class="text-right pb-2">Win Rate</th>
+                        <th class="text-right pb-2">Staked</th>
+                        <th class="text-right pb-2">P&L</th>
+                        <th class="text-right pb-2">ROI</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-border">
+                    {% for s in sport_breakdown %}
+                    <tr class="hover:bg-dark-bg/50">
+                        <td class="py-2 font-medium">{{ s.sport|upper }}</td>
+                        <td class="py-2 text-right text-gray-300">{{ s.total_bets }}</td>
+                        <td class="py-2 text-right text-emerald-400">{{ s.wins }}</td>
+                        <td class="py-2 text-right text-red-400">{{ s.losses }}</td>
+                        <td class="py-2 text-right text-gray-400">{{ s.pushes }}</td>
+                        <td class="py-2 text-right
+                            {% if s.win_rate >= 55 %}text-emerald-400
+                            {% elif s.win_rate >= 45 %}text-yellow-400
+                            {% else %}text-red-400{% endif %}">
+                            {{ "%.1f"|format(s.win_rate) }}%
+                        </td>
+                        <td class="py-2 text-right text-gray-300">${{ "%.2f"|format(s.total_staked) }}</td>
+                        <td class="py-2 text-right font-bold
+                            {% if s.total_pnl > 0 %}text-emerald-400
+                            {% elif s.total_pnl < 0 %}text-red-400
+                            {% else %}text-gray-300{% endif %}">
+                            {% if s.total_pnl >= 0 %}+{% endif %}${{ "%.2f"|format(s.total_pnl) }}
+                        </td>
+                        <td class="py-2 text-right
+                            {% if s.roi_pct > 0 %}text-emerald-400
+                            {% elif s.roi_pct < 0 %}text-red-400
+                            {% else %}text-gray-300{% endif %}">
+                            {% if s.roi_pct >= 0 %}+{% endif %}{{ "%.1f"|format(s.roi_pct) }}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pending Bets -->
+    {% if pending %}
+    <div class="bg-dark-card border border-dark-border rounded-lg p-5 mb-8">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+            Pending Bets
+            <span class="px-2 py-0.5 bg-yellow-600/30 text-yellow-400 text-xs font-bold rounded-full">{{ pending|length }}</span>
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 border-b border-dark-border">
+                        <th class="text-left pb-2">Date</th>
+                        <th class="text-left pb-2">Game</th>
+                        <th class="text-left pb-2">Pick</th>
+                        <th class="text-left pb-2">Book</th>
+                        <th class="text-right pb-2">Odds</th>
+                        <th class="text-right pb-2">Stake</th>
+                        <th class="text-center pb-2">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-border">
+                    {% for b in pending %}
+                    <tr class="hover:bg-dark-bg/50">
+                        <td class="py-2 text-gray-400">{{ b.placed_at[:10] if b.placed_at else '—' }}</td>
+                        <td class="py-2 text-gray-300">{{ b.home_team }} vs {{ b.away_team }}</td>
+                        <td class="py-2 font-medium">{{ b.selection }}</td>
+                        <td class="py-2 text-gray-400">{{ b.bookmaker }}</td>
+                        <td class="py-2 text-right text-gray-300">
+                            {% if b.odds > 0 %}+{% endif %}{{ b.odds }}
+                        </td>
+                        <td class="py-2 text-right text-gray-300">${{ "%.2f"|format(b.stake) }}</td>
+                        <td class="py-2 text-center">
+                            <span class="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">Pending</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Bet History -->
+    <div class="bg-dark-card border border-dark-border rounded-lg p-5">
+        <h2 class="font-bold text-lg mb-4">Bet History</h2>
+        {% if history %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 border-b border-dark-border">
+                        <th class="text-left pb-2">Date</th>
+                        <th class="text-left pb-2">Game</th>
+                        <th class="text-left pb-2">Pick</th>
+                        <th class="text-left pb-2">Book</th>
+                        <th class="text-right pb-2">Odds</th>
+                        <th class="text-right pb-2">Stake</th>
+                        <th class="text-center pb-2">Result</th>
+                        <th class="text-right pb-2">P&L</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-border">
+                    {% for b in history %}
+                    <tr class="hover:bg-dark-bg/50">
+                        <td class="py-2 text-gray-400">{{ b.resolved_at[:10] if b.resolved_at else (b.placed_at[:10] if b.placed_at else '—') }}</td>
+                        <td class="py-2 text-gray-300">{{ b.home_team }} vs {{ b.away_team }}</td>
+                        <td class="py-2 font-medium">{{ b.selection }}</td>
+                        <td class="py-2 text-gray-400">{{ b.bookmaker }}</td>
+                        <td class="py-2 text-right text-gray-300">
+                            {% if b.odds > 0 %}+{% endif %}{{ b.odds }}
+                        </td>
+                        <td class="py-2 text-right text-gray-300">${{ "%.2f"|format(b.stake) }}</td>
+                        <td class="py-2 text-center">
+                            {% if b.outcome == 'win' %}
+                            <span class="px-2 py-0.5 bg-emerald-600/30 text-emerald-400 text-xs font-bold rounded-full">WIN</span>
+                            {% elif b.outcome == 'loss' %}
+                            <span class="px-2 py-0.5 bg-red-600/30 text-red-400 text-xs font-bold rounded-full">LOSS</span>
+                            {% elif b.outcome == 'push' %}
+                            <span class="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs font-bold rounded-full">PUSH</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2 text-right font-bold
+                            {% if b.pnl and b.pnl > 0 %}text-emerald-400
+                            {% elif b.pnl and b.pnl < 0 %}text-red-400
+                            {% else %}text-gray-400{% endif %}">
+                            {% if b.pnl is not none %}
+                                {% if b.pnl >= 0 %}+{% endif %}${{ "%.2f"|format(b.pnl) }}
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-gray-500 py-8">
+            <p>No resolved bets yet.</p>
+            <p class="text-sm mt-1">Log bets from the <a href="/" class="text-emerald-400 hover:underline">Top Picks</a> page.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not history and not pending and stats.total_bets == 0 %}
+    <div class="text-center text-gray-500 py-12">
+        <p class="text-lg">No bets tracked yet</p>
+        <p class="text-sm mt-2">Head to <a href="/" class="text-emerald-400 hover:underline">Top Picks</a> and click "Log Bet" on any pick.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
