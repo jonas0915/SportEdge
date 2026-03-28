@@ -5,6 +5,7 @@ from engine.value_finder import find_value_bets, find_value_bets_with_model
 from engine.ranker import rank_predictions
 from engine.elo import get_elo
 from engine.probability import model_probability
+from engine.rationale import generate_rationale
 from db.models import upsert_game, insert_odds, insert_prediction, get_top_picks
 from config import config
 
@@ -88,15 +89,36 @@ async def run_pipeline() -> list[dict]:
                     f"Model prob for {game_data['home_team']} vs {game_data['away_team']}: "
                     f"{model_prob:.3f}"
                 )
+                _has_stats = True
+                _home_elo_val = home_elo
+                _away_elo_val = away_elo
             else:
                 # Fallback to consensus-only (Phase 1 behavior)
                 value_bets = find_value_bets(
                     game_data["odds"], min_edge=config.alerts.min_edge
                 )
+                _has_stats = False
+                _home_elo_val = None
+                _away_elo_val = None
 
             ranked = rank_predictions(value_bets)
 
             for pick in ranked:
+                rationale = generate_rationale(
+                    model_prob=pick["model_prob"],
+                    market_prob=pick["market_prob"],
+                    edge=pick["edge"],
+                    selection=pick["selection"],
+                    best_book=pick["best_book"],
+                    best_odds=pick["best_odds"],
+                    home_team=game_data["home_team"],
+                    away_team=game_data["away_team"],
+                    sport=game_data["sport"],
+                    home_stats=home_stats if _has_stats else None,
+                    away_stats=away_stats if _has_stats else None,
+                    home_elo=_home_elo_val,
+                    away_elo=_away_elo_val,
+                )
                 insert_prediction(
                     game_id=game_id,
                     bet_type=pick["bet_type"],
@@ -107,7 +129,7 @@ async def run_pipeline() -> list[dict]:
                     confidence=pick["confidence"],
                     kelly_fraction=pick["kelly_fraction"],
                     score=pick["score"],
-                    rationale="",
+                    rationale=rationale,
                     best_book=pick["best_book"],
                     best_odds=pick["best_odds"],
                 )

@@ -3,6 +3,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from engine.pipeline import run_pipeline, run_stats_fetch
 from engine.results import run_results_fetch
+from engine.notifier import send_top_picks_alert
 from config import config
 
 logger = logging.getLogger("scheduler")
@@ -38,6 +39,21 @@ async def results_job():
         logger.error(f"Scheduler: results fetch failed — {e}")
 
 
+async def notify_job():
+    """Send Telegram alerts for top picks if Telegram is configured."""
+    if not config.telegram.enabled:
+        return
+    logger.info("Scheduler: running top-picks Telegram alert")
+    try:
+        sent = await send_top_picks_alert()
+        if sent:
+            logger.info("Scheduler: Telegram alert sent")
+        else:
+            logger.info("Scheduler: no new picks to alert (or Telegram not configured)")
+    except Exception as e:
+        logger.error(f"Scheduler: notify job failed — {e}")
+
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
@@ -63,5 +79,13 @@ def create_scheduler() -> AsyncIOScheduler:
         max_instances=1,
         id="results_fetch",
         name="Fetch scores + resolve predictions",
+    )
+    scheduler.add_job(
+        notify_job,
+        "interval",
+        minutes=30,
+        max_instances=1,
+        id="telegram_notify",
+        name="Send Telegram top-picks alert",
     )
     return scheduler

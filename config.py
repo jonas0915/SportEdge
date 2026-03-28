@@ -25,6 +25,7 @@ class Alerts:
     score_threshold: float = _cfg["alerts"]["score_threshold"]
     min_edge: float = _cfg["alerts"]["min_edge"]
     pre_game_hours: int = _cfg["alerts"]["pre_game_hours"]
+    min_alert_score: float = _cfg["alerts"]["min_alert_score"]
 
 
 class Model:
@@ -48,6 +49,7 @@ class Telegram:
     enabled: bool = _cfg["telegram"]["enabled"]
     bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
+    min_alert_score: float = _cfg["telegram"]["min_alert_score"]
 
 
 class Config:

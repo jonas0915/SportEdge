@@ -9,6 +9,7 @@ alerts:
   score_threshold: 7.0
   min_edge: 0.05
   pre_game_hours: 2
+  min_alert_score: 0.005  # only alert on picks above this score
 
 model:
   elo_weight: 0.4
@@ -25,4 +26,5 @@ dashboard:
   timezone_display: "US/Pacific"
 
 telegram:
-  enabled: false
+  enabled: true
+  min_alert_score: 0.005
