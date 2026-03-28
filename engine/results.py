@@ -10,6 +10,7 @@ from fetchers.base import BaseFetcher
 from fetchers.odds_fetcher import SPORT_KEYS
 from db.database import get_connection
 from db.models import resolve_bets
+from engine.elo import get_elo, update_elo, save_elo
 from config import config
 
 logger = logging.getLogger("engine.results")
@@ -154,6 +155,18 @@ def process_scores_response(data: list[dict], sport_key: str) -> tuple[int, int]
 
             _update_game_final(conn, api_id, home_score, away_score, winner)
             games_updated += 1
+
+            # Update Elo ratings when we have a definitive winner
+            sport = API_KEY_TO_SPORT.get(sport_key, sport_key)
+            if home_team and away_team and winner is not None:
+                try:
+                    home_elo = get_elo(sport, home_team)
+                    away_elo = get_elo(sport, away_team)
+                    new_home, new_away = update_elo(home_elo, away_elo, a_won=(winner == home_team))
+                    save_elo(sport, home_team, new_home)
+                    save_elo(sport, away_team, new_away)
+                except Exception as elo_err:
+                    logger.warning(f"Elo update failed for {home_team} vs {away_team}: {elo_err}")
 
             # Resolve predictions
             pending = conn.execute(

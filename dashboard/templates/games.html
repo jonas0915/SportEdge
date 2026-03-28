@@ -3,7 +3,7 @@
 {% block nav_games %}text-emerald-400{% endblock %}
 
 {% block content %}
-<div>
+<div x-data="{}">
     <div class="flex flex-wrap gap-3 mb-6">
         <select @change="window.location = '/games?sport=' + $event.target.value"
                 class="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm">

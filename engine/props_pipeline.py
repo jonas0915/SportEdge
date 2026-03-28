@@ -8,6 +8,60 @@ from config import config
 logger = logging.getLogger("engine.props_pipeline")
 
 
+def _rebuild_picks_from_db(sport: str, min_edge: float) -> list[dict]:
+    """
+    Re-compute prop picks from recently stored raw props when a live fetch fails.
+    This prevents prop_picks from going empty when the circuit breaker is open.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM props WHERE sport = ? AND created_at >= datetime('now', '-24 hours')",
+            (sport,),
+        ).fetchall()
+        if not rows:
+            return get_top_prop_picks(sport=sport, limit=50)
+        props_data = [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+    picks = find_prop_edges(props_data, min_edge=min_edge)
+    if not picks:
+        logger.info(f"No edges in stored props for {sport} — returning existing picks")
+        return get_top_prop_picks(sport=sport, limit=50)
+
+    # Persist the re-computed picks
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM prop_picks WHERE sport = ?", (sport,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    from db.models import insert_prop_pick as _insert
+    saved = 0
+    for pick in picks:
+        try:
+            _insert(
+                game_id=pick.get("game_id"),
+                sport=pick["sport"],
+                player_name=pick["player_name"],
+                stat_type=pick["stat_type"],
+                direction=pick["direction"],
+                consensus_line=pick["consensus_line"],
+                best_line=pick["best_line"],
+                best_book=pick["best_book"],
+                edge_pct=pick["edge_pct"],
+                pp_line=pick.get("pp_line"),
+            )
+            saved += 1
+        except Exception as e:
+            logger.warning(f"Failed to save rebuilt prop pick: {e}")
+
+    logger.info(f"Rebuilt {saved} prop picks from stored DB props for {sport}")
+    return get_top_prop_picks(sport=sport, limit=50)
+
+
 async def run_props_pipeline(
     sport_key: str = "basketball_nba",
 ) -> list[dict]:
@@ -39,8 +93,8 @@ async def run_props_pipeline(
         props = await fetcher.fetch_all_props(sport_key=sport_key, markets=markets)
 
         if not props:
-            logger.info(f"No props fetched for {sport_key} — keeping existing picks")
-            return get_top_prop_picks(sport=sport, limit=50)
+            logger.info(f"No props fetched for {sport_key} — rebuilding picks from stored DB props")
+            return _rebuild_picks_from_db(sport=sport, min_edge=min_edge)
 
         # Save raw prop lines to DB
         saved_props = 0
