@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Props Finder{% endblock %}
+{% block nav_props %}text-emerald-400{% endblock %}
+
+{% block content %}
+<div>
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-emerald-400">Player Props Finder</h1>
+        <p class="text-sm text-gray-400 mt-1">
+            Cross-book prop line edges — sorted by edge size. Compare sharp books vs DFS platforms.
+        </p>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-3 mb-6">
+        <select onchange="window.location = '/props?sport=' + this.value"
+                class="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm">
+            <option value="all" {% if sport_filter == 'all' %}selected{% endif %}>All Sports</option>
+            {% for s in sports %}
+            <option value="{{ s }}" {% if s == sport_filter %}selected{% endif %}>{{ s|upper }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if picks %}
+    <!-- Stats bar -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-400">{{ picks|length }}</div>
+            <div class="text-xs text-gray-400 mt-1">Edges Found</div>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            <div class="text-2xl font-bold text-yellow-400">
+                {{ "%.1f"|format(picks[0].edge_pct * 100) }}%
+            </div>
+            <div class="text-xs text-gray-400 mt-1">Best Edge</div>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-center">
+            {% set pp_picks = picks | selectattr("pp_line") | list %}
+            <div class="text-2xl font-bold text-purple-400">{{ pp_picks|length }}</div>
+            <div class="text-xs text-gray-400 mt-1">PrizePicks Edges</div>
+        </div>
+    </div>
+
+    <!-- Prop picks list -->
+    <div class="space-y-3">
+        {% for pick in picks %}
+        <div class="bg-dark-card border border-dark-border rounded-lg p-4 hover:border-emerald-500/50 transition">
+            <div class="flex items-start justify-between gap-4">
+                <!-- Left: player + context -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- Direction badge -->
+                        <span class="px-2 py-0.5 rounded text-xs font-bold
+                            {% if pick.direction == 'OVER' %}bg-emerald-600 text-white
+                            {% else %}bg-red-700 text-white{% endif %}">
+                            {{ pick.direction }}
+                        </span>
+                        <!-- Player name + stat -->
+                        <span class="font-semibold text-white">
+                            {{ pick.player_name }}
+                        </span>
+                        <span class="text-gray-400 text-sm">
+                            &mdash; {{ pick.stat_type | replace("player_", "") | replace("_", " ") | title }}
+                        </span>
+                    </div>
+
+                    <!-- Game context -->
+                    {% if pick.home_team %}
+                    <div class="text-xs text-gray-500 mt-1">
+                        {{ pick.sport | upper }} &middot;
+                        {{ pick.home_team }} vs {{ pick.away_team }}
+                        {% if pick.start_time %}
+                        &middot; {{ pick.start_time | gametime }}
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-xs text-gray-500 mt-1">{{ pick.sport | upper }}</div>
+                    {% endif %}
+
+                    <!-- Line comparison -->
+                    <div class="flex items-center gap-4 mt-3 flex-wrap text-sm">
+                        <div>
+                            <span class="text-gray-400 text-xs block">Consensus</span>
+                            <span class="font-bold text-gray-200">{{ pick.consensus_line }}</span>
+                        </div>
+                        <div class="text-gray-600">&rarr;</div>
+                        <div>
+                            <span class="text-gray-400 text-xs block">Best Line</span>
+                            <span class="font-bold
+                                {% if pick.direction == 'OVER' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                                {{ pick.best_line }}
+                            </span>
+                        </div>
+                        {% if pick.pp_line %}
+                        <div>
+                            <span class="text-purple-400 text-xs block">PrizePicks</span>
+                            <span class="font-bold text-purple-300">{{ pick.pp_line }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Right: edge + book -->
+                <div class="text-right flex-shrink-0">
+                    <div class="text-xl font-bold
+                        {% if pick.edge_pct >= 0.10 %}text-emerald-400
+                        {% elif pick.edge_pct >= 0.07 %}text-yellow-400
+                        {% else %}text-gray-300{% endif %}">
+                        +{{ "%.1f"|format(pick.edge_pct * 100) }}%
+                    </div>
+                    <div class="text-xs text-gray-400 mt-0.5">edge</div>
+                    <div class="mt-2">
+                        {% if pick.best_book == 'prizepicks' %}
+                        <span class="px-2 py-0.5 bg-purple-800 text-purple-200 text-xs rounded font-medium">
+                            PrizePicks
+                        </span>
+                        {% elif pick.best_book == 'underdog_fantasy' %}
+                        <span class="px-2 py-0.5 bg-orange-800 text-orange-200 text-xs rounded font-medium">
+                            Underdog
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-0.5 bg-dark-border text-gray-300 text-xs rounded font-medium">
+                            {{ pick.best_book | replace("_", " ") | title }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- Empty state -->
+    <div class="text-center text-gray-400 py-16">
+        <div class="text-5xl mb-4 text-gray-600">&#9783;</div>
+        <p class="text-lg font-semibold">No prop edges found right now</p>
+        <p class="text-sm mt-2 text-gray-500">
+            Props are fetched every 60 minutes when NBA games are scheduled today.
+        </p>
+        <p class="text-sm mt-1 text-gray-600">
+            Minimum edge threshold: 5% line difference vs consensus
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

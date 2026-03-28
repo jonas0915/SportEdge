@@ -28,3 +28,16 @@ dashboard:
 telegram:
   enabled: true
   min_alert_score: 0.005
+
+props:
+  enabled: true
+  sports: ["basketball_nba"]
+  markets: ["player_points", "player_rebounds", "player_assists", "player_threes"]
+  min_edge: 0.05
+  poll_interval_min: 60
+
+kalshi:
+  enabled: true
+  base_url: "https://trading-api.kalshi.com/trade-api/v2"
+  poll_interval_min: 30
+  sports_series: ["KXNBA", "KXNFL", "KXMLB", "KXNHL", "KXSB"]

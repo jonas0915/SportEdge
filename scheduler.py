@@ -4,6 +4,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from engine.pipeline import run_pipeline, run_stats_fetch
 from engine.results import run_results_fetch
 from engine.notifier import send_top_picks_alert
+from engine.props_pipeline import run_props_pipeline
 from config import config
 
 logger = logging.getLogger("scheduler")
@@ -37,6 +38,54 @@ async def results_job():
         )
     except Exception as e:
         logger.error(f"Scheduler: results fetch failed — {e}")
+
+
+async def props_job():
+    """Fetch player props and find edges. Runs every 60 min to conserve credits."""
+    props_cfg = getattr(config, "props", None)
+    if props_cfg and not props_cfg.enabled:
+        return
+
+    # Only run if there are NBA games today (saves credits)
+    from db.database import get_connection
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM games "
+            "WHERE sport = 'nba' AND status = 'upcoming' "
+            "AND date(start_time) = date('now')"
+        ).fetchone()
+        has_nba_today = row["cnt"] > 0
+    finally:
+        conn.close()
+
+    if not has_nba_today:
+        logger.info("Scheduler: no NBA games today — skipping props fetch")
+        return
+
+    logger.info("Scheduler: starting props pipeline")
+    try:
+        picks = await run_props_pipeline(sport_key="basketball_nba")
+        logger.info(f"Scheduler: props pipeline complete, {len(picks)} top picks")
+    except Exception as e:
+        logger.error(f"Scheduler: props pipeline failed — {e}")
+
+
+async def kalshi_job():
+    """Fetch Kalshi market data and update the DB. Runs every 30 min."""
+    kalshi_cfg = getattr(config, "kalshi", None)
+    if kalshi_cfg and not kalshi_cfg.enabled:
+        logger.info("Scheduler: Kalshi disabled in config — skipping")
+        return
+    logger.info("Scheduler: starting Kalshi market fetch")
+    try:
+        from fetchers.kalshi_fetcher import KalshiFetcher
+        fetcher = KalshiFetcher()
+        markets = await fetcher.fetch_all()
+        logger.info(f"Scheduler: Kalshi fetch complete, {len(markets)} markets updated")
+        await fetcher.close()
+    except Exception as e:
+        logger.error(f"Scheduler: Kalshi fetch failed — {e}")
 
 
 async def notify_job():
@@ -88,4 +137,24 @@ def create_scheduler() -> AsyncIOScheduler:
         id="telegram_notify",
         name="Send Telegram top-picks alert",
     )
+    props_cfg = getattr(config, "props", None)
+    if props_cfg and props_cfg.enabled:
+        scheduler.add_job(
+            props_job,
+            "interval",
+            minutes=props_cfg.poll_interval_min,
+            max_instances=1,
+            id="props_fetch",
+            name="Fetch player props + find edges",
+        )
+    kalshi_cfg = getattr(config, "kalshi", None)
+    if not kalshi_cfg or kalshi_cfg.enabled:
+        scheduler.add_job(
+            kalshi_job,
+            "interval",
+            minutes=getattr(kalshi_cfg, "poll_interval_min", 30) if kalshi_cfg else 30,
+            max_instances=1,
+            id="kalshi_fetch",
+            name="Fetch Kalshi prediction markets",
+        )
     return scheduler

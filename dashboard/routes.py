@@ -7,7 +7,10 @@ from db.models import (
     get_top_picks, get_upcoming_games, get_game_odds,
     insert_bet, get_pending_bets, get_bet_history,
     get_bet_stats, get_bet_stats_by_sport,
+    get_top_prop_picks,
+    get_kalshi_markets,
 )
+from engine.kalshi_edge import compute_kalshi_edges
 from engine.calibration import get_calibration_summary
 from engine.performance import (
     get_prediction_performance,
@@ -161,6 +164,70 @@ async def place_bet(
         logger.error(f"Failed to insert bet: {e}")
 
     return RedirectResponse("/?betlogged=1", status_code=303)
+
+
+@router.get("/props")
+async def props(request: Request, sport: str = "nba"):
+    picks = get_top_prop_picks(sport=sport if sport != "all" else "", limit=50)
+    return templates.TemplateResponse("props.html", {
+        "request": request,
+        "picks": picks,
+        "sport_filter": sport,
+        "sports": ["nba"],  # expandable as more sports are added
+    })
+
+
+@router.get("/api/props")
+async def api_props(sport: str = "nba"):
+    return get_top_prop_picks(sport=sport if sport != "all" else "", limit=50)
+
+
+KALSHI_CATEGORIES = ["All", "Sports", "Politics", "Economics", "Crypto", "Climate", "Other"]
+
+
+@router.get("/kalshi")
+async def kalshi(request: Request, category: str = "All"):
+    active_category = category if category in KALSHI_CATEGORIES else "All"
+    cat_filter = "" if active_category == "All" else active_category
+
+    markets = compute_kalshi_edges(category=cat_filter, limit=100)
+
+    # Count per category for tab badges
+    all_markets = get_kalshi_markets(category="", limit=2000)
+    category_counts: dict[str, int] = {}
+    for m in all_markets:
+        c = m.get("category", "Other") or "Other"
+        category_counts[c] = category_counts.get(c, 0) + 1
+
+    total_markets = len(all_markets)
+
+    # Last updated: newest updated_at across all markets
+    last_updated = "Never"
+    if all_markets:
+        try:
+            ts = max(m.get("updated_at", "") or "" for m in all_markets)
+            if ts:
+                dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                last_updated = dt.astimezone(PT).strftime("%-I:%M %p PT")
+        except Exception:
+            pass
+
+    return templates.TemplateResponse("kalshi.html", {
+        "request": request,
+        "markets": markets,
+        "categories": KALSHI_CATEGORIES,
+        "active_category": active_category,
+        "category_counts": category_counts,
+        "total_markets": total_markets,
+        "last_updated": last_updated,
+    })
+
+
+@router.get("/api/kalshi")
+async def api_kalshi(category: str = ""):
+    return compute_kalshi_edges(category=category, limit=100)
 
 
 @router.get("/tracker")

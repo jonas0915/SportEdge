@@ -366,6 +366,175 @@ def get_bet_stats(sport: str = "") -> dict:
         conn.close()
 
 
+def insert_prop(
+    game_id: int | None,
+    sport: str,
+    player_name: str,
+    stat_type: str,
+    line: float,
+    bookmaker: str,
+    over_price: float | None = None,
+    under_price: float | None = None,
+):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO props "
+            "(game_id, sport, player_name, stat_type, line, bookmaker, over_price, under_price) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (game_id, sport, player_name, stat_type, line, bookmaker, over_price, under_price),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def insert_prop_pick(
+    game_id: int | None,
+    sport: str,
+    player_name: str,
+    stat_type: str,
+    direction: str,
+    consensus_line: float,
+    best_line: float,
+    best_book: str,
+    edge_pct: float,
+    pp_line: float | None = None,
+):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO prop_picks "
+            "(game_id, sport, player_name, stat_type, direction, consensus_line, "
+            "best_line, best_book, edge_pct, pp_line) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                game_id, sport, player_name, stat_type, direction,
+                consensus_line, best_line, best_book, edge_pct, pp_line,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_top_prop_picks(sport: str = "", limit: int = 50) -> list[dict]:
+    """Return top prop picks sorted by edge descending, joined with game info."""
+    conn = get_connection()
+    try:
+        if sport:
+            rows = conn.execute(
+                """
+                SELECT pp.*,
+                       g.home_team, g.away_team, g.start_time, g.league
+                FROM prop_picks pp
+                LEFT JOIN games g ON pp.game_id = g.id
+                WHERE pp.sport = ?
+                  AND pp.created_at >= datetime('now', '-2 hours')
+                ORDER BY pp.edge_pct DESC
+                LIMIT ?
+                """,
+                (sport, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT pp.*,
+                       g.home_team, g.away_team, g.start_time, g.league
+                FROM prop_picks pp
+                LEFT JOIN games g ON pp.game_id = g.id
+                WHERE pp.created_at >= datetime('now', '-2 hours')
+                ORDER BY pp.edge_pct DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def upsert_kalshi_market(
+    ticker: str,
+    event_ticker: str,
+    title: str,
+    category: str,
+    status: str,
+    yes_price: float | None,
+    no_price: float | None,
+    volume: int,
+    volume_24h: int,
+    open_interest: int,
+    close_time: str,
+):
+    """Insert or update a Kalshi market record."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO kalshi_markets
+                (ticker, event_ticker, title, category, status,
+                 yes_price, no_price, volume, volume_24h, open_interest,
+                 close_time, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(ticker) DO UPDATE SET
+                event_ticker  = excluded.event_ticker,
+                title         = excluded.title,
+                category      = excluded.category,
+                status        = excluded.status,
+                yes_price     = excluded.yes_price,
+                no_price      = excluded.no_price,
+                volume        = excluded.volume,
+                volume_24h    = excluded.volume_24h,
+                open_interest = excluded.open_interest,
+                close_time    = excluded.close_time,
+                updated_at    = datetime('now')
+            """,
+            (
+                ticker, event_ticker, title, category, status,
+                yes_price, no_price, volume, volume_24h, open_interest,
+                close_time,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_kalshi_markets(category: str = "", limit: int = 100) -> list[dict]:
+    """Return Kalshi markets filtered by category, sorted by volume desc."""
+    conn = get_connection()
+    try:
+        if category:
+            rows = conn.execute(
+                """
+                SELECT * FROM kalshi_markets
+                WHERE status = 'open' AND category = ?
+                ORDER BY volume DESC
+                LIMIT ?
+                """,
+                (category, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT * FROM kalshi_markets
+                WHERE status = 'open'
+                ORDER BY volume DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_kalshi_sports_markets() -> list[dict]:
+    """Return sports-category Kalshi markets, sorted by volume desc."""
+    return get_kalshi_markets(category="Sports", limit=200)
+
+
 def get_bet_stats_by_sport() -> list[dict]:
     """Return per-sport bet stats for all sports that have resolved bets."""
     conn = get_connection()

@@ -45,11 +45,33 @@ class Dashboard:
     timezone_display: str = _cfg["dashboard"]["timezone_display"]
 
 
+class Props:
+    enabled: bool = _cfg.get("props", {}).get("enabled", True)
+    sports: list[str] = _cfg.get("props", {}).get("sports", ["basketball_nba"])
+    markets: list[str] = _cfg.get("props", {}).get(
+        "markets",
+        ["player_points", "player_rebounds", "player_assists", "player_threes"],
+    )
+    min_edge: float = _cfg.get("props", {}).get("min_edge", 0.05)
+    poll_interval_min: int = _cfg.get("props", {}).get("poll_interval_min", 60)
+
+
 class Telegram:
     enabled: bool = _cfg["telegram"]["enabled"]
     bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
     min_alert_score: float = _cfg["telegram"]["min_alert_score"]
+
+
+class Kalshi:
+    enabled: bool = _cfg.get("kalshi", {}).get("enabled", True)
+    base_url: str = _cfg.get("kalshi", {}).get(
+        "base_url", "https://trading-api.kalshi.com/trade-api/v2"
+    )
+    poll_interval_min: int = _cfg.get("kalshi", {}).get("poll_interval_min", 30)
+    sports_series: list[str] = _cfg.get("kalshi", {}).get(
+        "sports_series", ["KXNBA", "KXNFL", "KXMLB", "KXNHL", "KXSB"]
+    )
 
 
 class Config:
@@ -59,6 +81,8 @@ class Config:
     kelly = Kelly()
     dashboard = Dashboard()
     telegram = Telegram()
+    props = Props()
+    kalshi = Kalshi()
     db_path: str = str(BASE_DIR / "sportedge.db")
     log_dir: str = str(BASE_DIR / "logs")
 
