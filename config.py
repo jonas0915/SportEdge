@@ -66,7 +66,7 @@ class Telegram:
 class Kalshi:
     enabled: bool = _cfg.get("kalshi", {}).get("enabled", True)
     base_url: str = _cfg.get("kalshi", {}).get(
-        "base_url", "https://trading-api.kalshi.com/trade-api/v2"
+        "base_url", "https://api.elections.kalshi.com/trade-api/v2"
     )
     poll_interval_min: int = _cfg.get("kalshi", {}).get("poll_interval_min", 30)
     sports_series: list[str] = _cfg.get("kalshi", {}).get(

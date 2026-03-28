@@ -2,6 +2,7 @@ import logging
 from fetchers.props_fetcher import PropsFetcher
 from engine.props_edge import find_prop_edges
 from db.models import insert_prop, insert_prop_pick, get_top_prop_picks
+from db.database import get_connection
 from config import config
 
 logger = logging.getLogger("engine.props_pipeline")
@@ -34,11 +35,12 @@ async def run_props_pipeline(
     fetcher = PropsFetcher()
     try:
         logger.info(f"Props pipeline starting for {sport_key}")
+
         props = await fetcher.fetch_all_props(sport_key=sport_key, markets=markets)
 
         if not props:
-            logger.info(f"No props fetched for {sport_key}")
-            return []
+            logger.info(f"No props fetched for {sport_key} — keeping existing picks")
+            return get_top_prop_picks(sport=sport, limit=50)
 
         # Save raw prop lines to DB
         saved_props = 0
@@ -64,6 +66,14 @@ async def run_props_pipeline(
 
         # Find edges
         picks = find_prop_edges(props, min_edge=min_edge)
+
+        # Only replace existing picks when we have fresh data
+        conn = get_connection()
+        try:
+            conn.execute("DELETE FROM prop_picks WHERE sport = ?", (sport,))
+            conn.commit()
+        finally:
+            conn.close()
 
         # Save prop picks to DB
         saved_picks = 0

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from engine.pipeline import run_pipeline, run_stats_fetch
 from engine.results import run_results_fetch
@@ -146,6 +147,7 @@ def create_scheduler() -> AsyncIOScheduler:
             max_instances=1,
             id="props_fetch",
             name="Fetch player props + find edges",
+            next_run_time=datetime.now(timezone.utc),  # run immediately on startup
         )
     kalshi_cfg = getattr(config, "kalshi", None)
     if not kalshi_cfg or kalshi_cfg.enabled:

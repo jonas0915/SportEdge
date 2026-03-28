@@ -80,11 +80,16 @@
                         <div class="font-bold">{{ "%.4f"|format(pick.score) }}</div>
                     </div>
                 </div>
-                {% if pick.rationale %}
                 <div class="mt-3 p-3 bg-dark-bg rounded text-gray-300">
-                    {{ pick.rationale }}
+                    {% if pick.rationale %}
+                        {{ pick.rationale }}
+                    {% else %}
+                        Model shows a +{{ "%.0f"|format(pick.edge * 100) }}% edge vs market on
+                        {% if pick.selection == 'home' %}{{ pick.home_team }}{% elif pick.selection == 'away' %}{{ pick.away_team }}{% else %}Draw{% endif %}.
+                        Best odds at {{ pick.best_book }}
+                        {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }}.
+                    {% endif %}
                 </div>
-                {% endif %}
                 {% set bet_team = pick.home_team if pick.selection == 'home' else (pick.away_team if pick.selection == 'away' else 'Draw') %}
                 <div class="flex items-center gap-3 mt-3 flex-wrap">
                     <button class="px-3 py-1 bg-emerald-600 rounded text-sm hover:bg-emerald-500"

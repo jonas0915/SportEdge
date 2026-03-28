@@ -48,44 +48,44 @@ def _parse_market(market: dict) -> dict | None:
     if not ticker:
         return None
 
-    # The market title may be in 'subtitle' (specific question) or 'title' (general)
+    # The market title: prefer yes_sub_title (specific question), fall back to title
     title = (
-        market.get("subtitle")
+        market.get("yes_sub_title")
         or market.get("title")
+        or market.get("subtitle")
         or market.get("question")
         or ticker
     )
 
     event_ticker = market.get("event_ticker", "")
 
-    # Prices: yes_bid / yes_ask give the bid-ask spread; midpoint = implied probability
-    yes_bid = market.get("yes_bid", 0) or 0
-    yes_ask = market.get("yes_ask", 0) or 0
-    no_bid = market.get("no_bid", 0) or 0
-    no_ask = market.get("no_ask", 0) or 0
+    # Prices: new API uses _dollars suffix; values are already 0-1 probabilities
+    yes_bid = float(market.get("yes_bid_dollars") or 0)
+    yes_ask = float(market.get("yes_ask_dollars") or 0)
+    no_bid = float(market.get("no_bid_dollars") or 0)
+    no_ask = float(market.get("no_ask_dollars") or 0)
 
-    # Kalshi prices are in cents (0-100), convert to 0-1 probability
     if yes_bid or yes_ask:
-        yes_mid_cents = (yes_bid + yes_ask) / 2.0
-        yes_price = yes_mid_cents / 100.0
+        yes_price = (yes_bid + yes_ask) / 2.0
     else:
-        # Fall back to last_price if bid/ask not available
-        lp = market.get("last_price", 0) or 0
-        yes_price = lp / 100.0 if lp > 1 else lp  # handle both formats
+        # Fall back to last_price_dollars
+        lp = float(market.get("last_price_dollars") or 0)
+        yes_price = lp
 
     if no_bid or no_ask:
-        no_mid_cents = (no_bid + no_ask) / 2.0
-        no_price = no_mid_cents / 100.0
+        no_price = (no_bid + no_ask) / 2.0
     else:
         no_price = 1.0 - yes_price if yes_price else None
 
-    # Volume / open interest — raw integers
-    volume = market.get("volume", 0) or 0
-    volume_24h = market.get("volume_24h", 0) or 0
-    open_interest = market.get("open_interest", 0) or 0
+    # Volume / open interest — new API uses _fp suffix (floating point)
+    volume = float(market.get("volume_fp") or 0)
+    volume_24h = float(market.get("volume_24h_fp") or 0)
+    open_interest = float(market.get("open_interest_fp") or 0)
 
     close_time = market.get("close_time") or market.get("expiration_time", "")
-    status = market.get("status", "open")
+    # Normalize status: new API returns 'active' for open markets
+    raw_status = market.get("status", "open")
+    status = "open" if raw_status == "active" else raw_status
 
     category = _classify_category(ticker, title)
 
@@ -99,7 +99,7 @@ def _parse_market(market: dict) -> dict | None:
         "no_price": no_price,
         "volume": int(volume),
         "volume_24h": int(volume_24h),
-        "open_interest": int(open_interest),
+        "open_interest": int(open_interest),  # DB stores as int; fp values truncated
         "close_time": close_time,
     }
 

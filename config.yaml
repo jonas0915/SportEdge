@@ -38,6 +38,6 @@ props:
 
 kalshi:
   enabled: true
-  base_url: "https://trading-api.kalshi.com/trade-api/v2"
+  base_url: "https://api.elections.kalshi.com/trade-api/v2"
   poll_interval_min: 30
   sports_series: ["KXNBA", "KXNFL", "KXMLB", "KXNHL", "KXSB"]

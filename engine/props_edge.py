@@ -10,9 +10,14 @@ SHARP_BOOKS = {
     "draftkings", "fanduel", "betmgm", "caesars", "pointsbet",
     "betrivers", "barstool", "wynnbet", "betonlineag", "bovada",
     "unibet_us", "twinspires", "betus", "mybookieag", "lowvig",
+    "espnbet", "hardrockbet", "hardrockbet_az",
 }
 
-DFS_BOOKS = {"prizepicks", "underdog_fantasy"}
+# DFS / social platforms — treated separately, NOT used for sharp consensus
+DFS_BOOKS = {
+    "prizepicks", "underdog_fantasy", "underdog",
+    "betr_us_dfs", "fliff",
+}
 
 
 def find_prop_edges(

@@ -88,6 +88,8 @@ def insert_prediction(
 def get_top_picks(limit: int = 20, min_edge: float = 0.0, sport: str = "") -> list[dict]:
     conn = get_connection()
     try:
+        # Deduplicate: one row per game+bet_type+selection, keeping the highest-edge prediction
+        # (best book/odds). Also deduplicates across repeated pipeline runs.
         if sport:
             rows = conn.execute(
                 """
@@ -95,6 +97,14 @@ def get_top_picks(limit: int = 20, min_edge: float = 0.0, sport: str = "") -> li
                 FROM predictions p
                 JOIN games g ON p.game_id = g.id
                 WHERE g.status = 'upcoming' AND p.edge >= ? AND g.sport = ?
+                  AND p.id = (
+                      SELECT id FROM predictions p2
+                      WHERE p2.game_id = p.game_id
+                        AND p2.bet_type = p.bet_type
+                        AND p2.selection = p.selection
+                      ORDER BY p2.edge DESC, p2.id DESC
+                      LIMIT 1
+                  )
                 ORDER BY p.score DESC
                 LIMIT ?
                 """,
@@ -107,6 +117,14 @@ def get_top_picks(limit: int = 20, min_edge: float = 0.0, sport: str = "") -> li
                 FROM predictions p
                 JOIN games g ON p.game_id = g.id
                 WHERE g.status = 'upcoming' AND p.edge >= ?
+                  AND p.id = (
+                      SELECT id FROM predictions p2
+                      WHERE p2.game_id = p.game_id
+                        AND p2.bet_type = p.bet_type
+                        AND p2.selection = p.selection
+                      ORDER BY p2.edge DESC, p2.id DESC
+                      LIMIT 1
+                  )
                 ORDER BY p.score DESC
                 LIMIT ?
                 """,
@@ -430,7 +448,7 @@ def get_top_prop_picks(sport: str = "", limit: int = 50) -> list[dict]:
                 FROM prop_picks pp
                 LEFT JOIN games g ON pp.game_id = g.id
                 WHERE pp.sport = ?
-                  AND pp.created_at >= datetime('now', '-2 hours')
+                  AND pp.created_at >= datetime('now', '-24 hours')
                 ORDER BY pp.edge_pct DESC
                 LIMIT ?
                 """,
@@ -443,7 +461,7 @@ def get_top_prop_picks(sport: str = "", limit: int = 50) -> list[dict]:
                        g.home_team, g.away_team, g.start_time, g.league
                 FROM prop_picks pp
                 LEFT JOIN games g ON pp.game_id = g.id
-                WHERE pp.created_at >= datetime('now', '-2 hours')
+                WHERE pp.created_at >= datetime('now', '-24 hours')
                 ORDER BY pp.edge_pct DESC
                 LIMIT ?
                 """,
