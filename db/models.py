@@ -85,20 +85,33 @@ def insert_prediction(
         conn.close()
 
 
-def get_top_picks(limit: int = 20, min_edge: float = 0.0) -> list[dict]:
+def get_top_picks(limit: int = 20, min_edge: float = 0.0, sport: str = "") -> list[dict]:
     conn = get_connection()
     try:
-        rows = conn.execute(
-            """
-            SELECT p.*, g.sport, g.league, g.home_team, g.away_team, g.start_time
-            FROM predictions p
-            JOIN games g ON p.game_id = g.id
-            WHERE g.status = 'upcoming' AND p.edge >= ?
-            ORDER BY p.score DESC
-            LIMIT ?
-            """,
-            (min_edge, limit),
-        ).fetchall()
+        if sport:
+            rows = conn.execute(
+                """
+                SELECT p.*, g.sport, g.league, g.home_team, g.away_team, g.start_time
+                FROM predictions p
+                JOIN games g ON p.game_id = g.id
+                WHERE g.status = 'upcoming' AND p.edge >= ? AND g.sport = ?
+                ORDER BY p.score DESC
+                LIMIT ?
+                """,
+                (min_edge, sport, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT p.*, g.sport, g.league, g.home_team, g.away_team, g.start_time
+                FROM predictions p
+                JOIN games g ON p.game_id = g.id
+                WHERE g.status = 'upcoming' AND p.edge >= ?
+                ORDER BY p.score DESC
+                LIMIT ?
+                """,
+                (min_edge, limit),
+            ).fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()

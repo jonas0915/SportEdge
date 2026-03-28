@@ -2,6 +2,7 @@ import asyncio
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from engine.pipeline import run_pipeline, run_stats_fetch
+from engine.results import run_results_fetch
 from config import config
 
 logger = logging.getLogger("scheduler")
@@ -24,6 +25,19 @@ async def stats_job():
         logger.error(f"Scheduler: stats fetch failed — {e}")
 
 
+async def results_job():
+    logger.info("Scheduler: starting results fetch + prediction resolution")
+    try:
+        result = await run_results_fetch()
+        logger.info(
+            f"Scheduler: results complete — "
+            f"{result['games_updated']} games finalized, "
+            f"{result['predictions_resolved']} predictions resolved"
+        )
+    except Exception as e:
+        logger.error(f"Scheduler: results fetch failed — {e}")
+
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
@@ -41,5 +55,13 @@ def create_scheduler() -> AsyncIOScheduler:
         max_instances=1,
         id="stats_fetch",
         name="Fetch team stats",
+    )
+    scheduler.add_job(
+        results_job,
+        "interval",
+        minutes=30,
+        max_instances=1,
+        id="results_fetch",
+        name="Fetch scores + resolve predictions",
     )
     return scheduler

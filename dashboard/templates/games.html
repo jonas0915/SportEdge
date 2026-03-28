@@ -22,7 +22,7 @@
                 <div>
                     <div class="font-semibold">{{ game.home_team }} vs {{ game.away_team }}</div>
                     <div class="text-sm text-gray-400">
-                        {{ game.sport|upper }} &middot; {{ game.start_time[:16] }}
+                        {{ game.sport|upper }} &middot; {{ game.start_time|gametime }}
                     </div>
                 </div>
                 <div class="text-sm text-gray-400">
