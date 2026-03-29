@@ -47,9 +47,31 @@ templates.env.filters["gametime"] = _format_gametime
 @router.get("/")
 async def index(request: Request, sport: str = "", min_edge: float = 0.0):
     picks = get_top_picks(limit=50, min_edge=min_edge or config.alerts.min_edge, sport=sport)
+
+    # Best Bets: top 3 by model probability (highest confidence wins)
+    best_bets = sorted(picks, key=lambda p: p["model_prob"], reverse=True)[:3]
+
+    # Best Underdogs: picks where market odds are +200 or higher (underdog),
+    # ranked by expected value = model_prob * payout
+    underdogs = []
+    for p in picks:
+        odds = p.get("best_odds", 0)
+        if odds >= 200:  # underdog threshold
+            if odds > 0:
+                payout = odds / 100.0
+            else:
+                payout = 100.0 / abs(odds)
+            ev = p["model_prob"] * (1 + payout) - 1
+            p["ev"] = ev
+            p["payout_mult"] = payout
+            underdogs.append(p)
+    best_underdogs = sorted(underdogs, key=lambda p: p["ev"], reverse=True)[:3]
+
     return templates.TemplateResponse("index.html", {
         "request": request,
         "picks": picks,
+        "best_bets": best_bets,
+        "best_underdogs": best_underdogs,
         "sport_filter": sport,
         "min_edge": min_edge,
         "sports": ["nfl", "nba", "mlb", "nhl", "soccer", "ufc"],

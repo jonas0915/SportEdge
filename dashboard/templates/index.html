@@ -2,9 +2,106 @@
 {% block title %}Top Picks{% endblock %}
 {% block nav_home %}text-emerald-400{% endblock %}
 
+{# Reusable pick card macro #}
+{% macro pick_card(pick, label="", label_color="emerald") %}
+<div x-data="{ expanded: false }"
+     class="bg-dark-card border border-dark-border rounded-lg p-4 cursor-pointer hover:border-{{ label_color }}-500/50 transition"
+     @click="expanded = !expanded">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            {% if label %}
+            <span class="text-xs font-bold px-2 py-1 rounded bg-{{ label_color }}-600/20 text-{{ label_color }}-400">
+                {{ label }}
+            </span>
+            {% endif %}
+            <div>
+                <div class="font-semibold text-lg">
+                    Bet
+                    <span class="text-{{ label_color }}-400">
+                        {% if pick.selection == 'home' %}{{ pick.home_team }}
+                        {% elif pick.selection == 'away' %}{{ pick.away_team }}
+                        {% else %}Draw{% endif %}
+                    </span>
+                </div>
+                <div class="text-sm text-gray-400">
+                    {{ pick.home_team }} vs {{ pick.away_team }}
+                </div>
+                <div class="text-xs text-gray-500">
+                    {{ pick.sport|upper }} &middot;
+                    {{ pick.start_time|gametime }}
+                </div>
+            </div>
+        </div>
+        <div class="text-right">
+            <div class="text-lg font-bold text-{{ label_color }}-400">
+                {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }}
+            </div>
+            <div class="text-sm text-gray-400">
+                {{ pick.best_book }}
+            </div>
+            <div class="text-xs {% if pick.edge > 0.10 %}text-emerald-400{% elif pick.edge > 0.05 %}text-yellow-400{% else %}text-gray-400{% endif %}">
+                +{{ "%.1f"|format(pick.edge * 100) }}% edge
+            </div>
+        </div>
+    </div>
+
+    <!-- Rationale (always visible) -->
+    <div class="mt-3 p-3 bg-dark-bg rounded text-gray-300 text-sm">
+        {% if pick.rationale %}
+            {{ pick.rationale }}
+        {% else %}
+            Model shows a +{{ "%.0f"|format(pick.edge * 100) }}% edge vs market on
+            {% if pick.selection == 'home' %}{{ pick.home_team }}{% elif pick.selection == 'away' %}{{ pick.away_team }}{% else %}Draw{% endif %}.
+            Best odds at {{ pick.best_book }}
+            {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }}.
+        {% endif %}
+    </div>
+
+    <!-- Expanded details -->
+    <div x-show="expanded" x-transition class="mt-3 pt-3 border-t border-dark-border text-sm">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <span class="text-gray-400">Our Prob</span>
+                <div class="font-bold">{{ "%.1f"|format(pick.model_prob * 100) }}%</div>
+            </div>
+            <div>
+                <span class="text-gray-400">Market Prob</span>
+                <div class="font-bold">{{ "%.1f"|format(pick.market_prob * 100) }}%</div>
+            </div>
+            <div>
+                <span class="text-gray-400">Kelly</span>
+                <div class="font-bold">{{ "%.2f"|format(pick.kelly_fraction * 100) }}%</div>
+            </div>
+            <div>
+                <span class="text-gray-400">Score</span>
+                <div class="font-bold">{{ "%.4f"|format(pick.score) }}</div>
+            </div>
+        </div>
+        {% set bet_team = pick.home_team if pick.selection == 'home' else (pick.away_team if pick.selection == 'away' else 'Draw') %}
+        <div class="flex items-center gap-3 mt-3 flex-wrap">
+            <button class="px-3 py-1 bg-emerald-600 rounded text-sm hover:bg-emerald-500"
+                    @click.stop="copyBet('{{ pick.best_book }}: Bet {{ bet_team }} ML @ {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }} — {{ pick.home_team }} vs {{ pick.away_team }}')">
+                Copy Bet
+            </button>
+            <form method="POST" action="/bets/place" @click.stop class="flex items-center gap-2">
+                <input type="hidden" name="prediction_id" value="{{ pick.id }}">
+                <span class="text-gray-400">$</span>
+                <input type="number" name="stake" value="10" min="0.01" step="0.01"
+                       class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-sm text-center"
+                       @click.stop>
+                <button type="submit"
+                        class="px-3 py-1 bg-blue-600 rounded text-sm hover:bg-blue-500">
+                    Log Bet
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
 {% block content %}
 <div x-data="picksList()" x-init="startRefresh({{ refresh_seconds }})">
-    <!-- Filters -->
+    <!-- Sport Filter -->
     <div class="flex flex-wrap gap-3 mb-6">
         <select @change="window.location = '/?sport=' + $event.target.value"
                 class="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm">
@@ -15,103 +112,48 @@
         </select>
     </div>
 
-    <!-- Picks -->
     {% if picks %}
-    <div class="space-y-4">
-        {% for pick in picks %}
-        <div x-data="{ expanded: false }"
-             class="bg-dark-card border border-dark-border rounded-lg p-4 cursor-pointer hover:border-emerald-500/50 transition"
-             @click="expanded = !expanded">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl font-bold
-                        {% if pick.score > 0.001 %}text-emerald-400
-                        {% elif pick.score > 0.0005 %}text-yellow-400
-                        {% else %}text-gray-400{% endif %}">
-                        #{{ pick.rank if pick.rank is defined else loop.index }}
-                    </span>
-                    <div>
-                        <div class="font-semibold text-lg">
-                            Bet
-                            <span class="text-emerald-400">
-                                {% if pick.selection == 'home' %}{{ pick.home_team }}
-                                {% elif pick.selection == 'away' %}{{ pick.away_team }}
-                                {% else %}Draw{% endif %}
-                            </span>
-                        </div>
-                        <div class="text-sm text-gray-400">
-                            {{ pick.home_team }} vs {{ pick.away_team }}
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            {{ pick.sport|upper }} &middot;
-                            Moneyline &middot;
-                            {{ pick.start_time|gametime }}
-                        </div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div class="text-lg font-bold {% if pick.edge > 0.10 %}text-emerald-400{% elif pick.edge > 0.05 %}text-yellow-400{% else %}text-gray-300{% endif %}">
-                        +{{ "%.1f"|format(pick.edge * 100) }}% edge
-                    </div>
-                    <div class="text-sm text-gray-400">
-                        {{ pick.best_book }} &middot;
-                        {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }}
-                    </div>
-                </div>
-            </div>
 
-            <!-- Expanded details -->
-            <div x-show="expanded" x-transition class="mt-4 pt-4 border-t border-dark-border text-sm">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                        <span class="text-gray-400">Our Prob</span>
-                        <div class="font-bold">{{ "%.1f"|format(pick.model_prob * 100) }}%</div>
-                    </div>
-                    <div>
-                        <span class="text-gray-400">Market Prob</span>
-                        <div class="font-bold">{{ "%.1f"|format(pick.market_prob * 100) }}%</div>
-                    </div>
-                    <div>
-                        <span class="text-gray-400">Kelly</span>
-                        <div class="font-bold">{{ "%.2f"|format(pick.kelly_fraction * 100) }}%</div>
-                    </div>
-                    <div>
-                        <span class="text-gray-400">Score</span>
-                        <div class="font-bold">{{ "%.4f"|format(pick.score) }}</div>
-                    </div>
-                </div>
-                <div class="mt-3 p-3 bg-dark-bg rounded text-gray-300">
-                    {% if pick.rationale %}
-                        {{ pick.rationale }}
-                    {% else %}
-                        Model shows a +{{ "%.0f"|format(pick.edge * 100) }}% edge vs market on
-                        {% if pick.selection == 'home' %}{{ pick.home_team }}{% elif pick.selection == 'away' %}{{ pick.away_team }}{% else %}Draw{% endif %}.
-                        Best odds at {{ pick.best_book }}
-                        {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }}.
-                    {% endif %}
-                </div>
-                {% set bet_team = pick.home_team if pick.selection == 'home' else (pick.away_team if pick.selection == 'away' else 'Draw') %}
-                <div class="flex items-center gap-3 mt-3 flex-wrap">
-                    <button class="px-3 py-1 bg-emerald-600 rounded text-sm hover:bg-emerald-500"
-                            @click.stop="copyBet('{{ pick.best_book }}: Bet {{ bet_team }} ML @ {% if pick.best_odds > 0 %}+{% endif %}{{ pick.best_odds|int }} — {{ pick.home_team }} vs {{ pick.away_team }}')">
-                        Copy Bet
-                    </button>
-                    <form method="POST" action="/bets/place" @click.stop class="flex items-center gap-2">
-                        <input type="hidden" name="prediction_id" value="{{ pick.id }}">
-                        <span class="text-gray-400">$</span>
-                        <input type="number" name="stake" value="10" min="0.01" step="0.01"
-                               class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-sm text-center"
-                               @click.stop>
-                        <button type="submit"
-                                class="px-3 py-1 bg-blue-600 rounded text-sm hover:bg-blue-500">
-                            Log Bet
-                        </button>
-                    </form>
-                </div>
-            </div>
+    <!-- BEST BETS -->
+    {% if best_bets %}
+    <div class="mb-8">
+        <h2 class="text-xl font-bold text-emerald-400 mb-1">Best Bets</h2>
+        <p class="text-sm text-gray-500 mb-4">Highest probability picks with edge over market</p>
+        <div class="space-y-3">
+            {% for pick in best_bets %}
+                {{ pick_card(pick, label="#" ~ loop.index ~ " BEST BET", label_color="emerald") }}
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+    {% endif %}
+
+    <!-- BEST UNDERDOGS -->
+    {% if best_underdogs %}
+    <div class="mb-8">
+        <h2 class="text-xl font-bold text-yellow-400 mb-1">Best Underdogs</h2>
+        <p class="text-sm text-gray-500 mb-4">Highest expected value longshots — big payout if they hit</p>
+        <div class="space-y-3">
+            {% for pick in best_underdogs %}
+                {{ pick_card(pick, label="#" ~ loop.index ~ " UNDERDOG", label_color="yellow") }}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ALL PICKS (collapsed) -->
+    <div x-data="{ showAll: false }" class="mt-6">
+        <button @click="showAll = !showAll"
+                class="w-full py-3 bg-dark-card border border-dark-border rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:border-gray-600 transition">
+            <span x-show="!showAll">Show All {{ picks|length }} Picks</span>
+            <span x-show="showAll">Hide All Picks</span>
+        </button>
+        <div x-show="showAll" x-transition class="space-y-3 mt-4">
+            {% for pick in picks %}
+                {{ pick_card(pick) }}
+            {% endfor %}
+        </div>
+    </div>
+
     {% else %}
     <div class="text-center text-gray-400 py-12">
         <p class="text-lg">No value bets found right now</p>
